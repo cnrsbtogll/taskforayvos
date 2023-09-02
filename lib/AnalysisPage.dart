@@ -30,9 +30,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
     setState(() {
       if (pickedFile != null) {
         _selectedImage = XFile(pickedFile.path);
+        saveImageLocally(_selectedImage!);
         _analyzeImage(_selectedImage!.path);
         // Seçilen resmi kaydet
-        saveImageLocally(_selectedImage!);
       }
     });
   }
@@ -101,8 +101,8 @@ class _AnalysisPageState extends State<AnalysisPage> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 32.0, vertical: 8.0),
               child: TextFormField(
-                decoration:
-                    const InputDecoration(labelText: 'API Anahtarınızı giriniz'),
+                decoration: const InputDecoration(
+                    labelText: 'API Anahtarınızı giriniz'),
                 onChanged: (value) {
                   setState(() {
                     apiKey = value;
@@ -110,33 +110,32 @@ class _AnalysisPageState extends State<AnalysisPage> {
                 },
               ),
             ),
-      
+
             // Resim Kutusu veya Mesaj
-      
-            CustomPaint(
-              painter: _selectedImage == null
-                  ? null
-                  : ImageTextPainter(
-                      imageFilePath: _selectedImage!.path,
+            _selectedImage == null
+                ? const Text('Resim Seçilmedi')
+                : CustomPaint(
+                    painter: ImageTextPainter(
+                      //imageFilePath: _selectedImage!.path,
+                      imageFileBytes:
+                          File(_selectedImage!.path).readAsBytesSync(),
                       analysisResult: analysisResult,
                     ),
-              child: _selectedImage == null
-                  ? const Text('Resim Seçilmedi')
-                  : Image.file(
+                    child: Image.file(
                       File(_selectedImage!.path),
                       width: 200.0,
                       height: 200.0,
                     ),
-            ),
-      
+                  ),
+
             const SizedBox(height: 20.0),
-      
+
             // Resim Yükle Düğmesi
             ElevatedButton(
               onPressed: _pickImage,
               child: const Text('Resim Yükle'),
             ),
-      
+
             // Analiz Sonuçları
             Text(analysisResult),
           ],
@@ -147,39 +146,40 @@ class _AnalysisPageState extends State<AnalysisPage> {
 }
 
 class ImageTextPainter extends CustomPainter {
-  final String imageFilePath;
+  final Uint8List imageFileBytes;
   final String analysisResult;
 
   ImageTextPainter({
-    required this.imageFilePath,
+    required this.imageFileBytes,
     required this.analysisResult,
   });
 
   @override
   void paint(Canvas canvas, Size size) async {
-    if (imageFilePath.isNotEmpty) {
-      final image = await loadImage(imageFilePath);
+    try {
+      final image = await loadImage(imageFileBytes);
       canvas.drawImage(image, Offset.zero, Paint());
-
-      final textStyle = TextStyle(
-        color: Colors.black,
-        fontSize: 16.0,
-      );
-
-      final paragraphBuilder = ui.ParagraphBuilder(
-        ui.ParagraphStyle(
-          textAlign: TextAlign.left,
-          fontSize: 16.0,
-        ),
-      )
-        ..pushStyle(textStyle as ui.TextStyle)
-        ..addText(analysisResult);
-
-      final paragraph = paragraphBuilder.build()
-        ..layout(ui.ParagraphConstraints(width: size.width));
-
-      canvas.drawParagraph(paragraph, const Offset(16.0, 16.0));
+    } catch (e) {
+      print('Resim çizme hatası: $e');
     }
+    final textStyle = ui.TextStyle(
+      color: Colors.black,
+      fontSize: 16.0,
+    );
+
+    final paragraphBuilder = ui.ParagraphBuilder(
+      ui.ParagraphStyle(
+        textAlign: TextAlign.left,
+        fontSize: 16.0,
+      ),
+    )
+      ..pushStyle(textStyle)
+      ..addText(analysisResult);
+
+    final paragraph = paragraphBuilder.build()
+      ..layout(ui.ParagraphConstraints(width: size.width));
+
+    canvas.drawParagraph(paragraph, const Offset(16.0, 16.0));
   }
 
   @override
@@ -187,12 +187,10 @@ class ImageTextPainter extends CustomPainter {
     return true;
   }
 
-  Future<ui.Image> loadImage(String imagePath) async {
-    final ByteData data = await rootBundle.load(imagePath);
-    final Uint8List bytes = data.buffer.asUint8List();
+  Future<ui.Image> loadImage(Uint8List imageFileBytes) async {
     final Completer<ui.Image> completer = Completer();
 
-    ui.decodeImageFromList(bytes, (ui.Image img) {
+    ui.decodeImageFromList(imageFileBytes, (ui.Image img) {
       completer.complete(img);
     });
 
